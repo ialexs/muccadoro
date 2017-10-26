@@ -244,6 +244,7 @@ for (( n=1; n<=num_pomodoros; ++n )); do
    summary+="Pomodoro $n: $start_time to $(date +'%H:%M')\n"
    if (( n!=num_pomodoros )); then
       start_time=$(date +'%s')
+      play beep.wav
       notify-send "You completed pomodoro $n.  Take a short break (3-5 minutes)."
       # TODO: it may be nice to create this message asynchronously with `lolcat -f` since
       # lolcat is a bit slow.  That's not a priority, though.
