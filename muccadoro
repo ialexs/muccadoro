@@ -1,16 +1,6 @@
 #!/usr/bin/env bash
 
-set -o nounset -o pipefail
-
-# Before doing anything, check if the required programs are installed.  See
-# <https://stackoverflow.com/q/592620>.  Some of these can probably be reasonably assumed
-# to be present, but err on the side of caution.
-for prog in awk cowsay figlet notify-send stty tput; do
-   if ! hash "$prog" 2>/dev/null; then
-      printf 'muccadoro: %s: command not found\n' "$prog" >&2
-      exit 127
-   fi
-done
+set -o nounset
 
 declare -i silly=1
 
@@ -145,9 +135,7 @@ on-tstp() {
 trap on-tstp TSTP
 
 count-state() {
-   # 130 is the exit status for termination by Ctrl-C.  See
-   # <http://www.tldp.org/LDP/abs/html/exitcodes.html>.
-   trap 'trap on-int INT; on-int; return 130' INT
+   trap 'trap on-int INT; on-int; return 1' INT
    state=1
 }
 
@@ -174,41 +162,16 @@ on-int() {
    fi
 }
 
-# XXX: beware of bugs due to SIGINT (Ctrl-C) being received during the short timeframe in
-# which another function invoked by this one is executing.  The `return 1` statement of
-# the SIGINT trap will be ran in the context of the innter function.
 pomodoro() {
    count-state
    while :; do
+      pp "$(figlet -f small "$((seconds/60)):$(printf '%02d' $((seconds%60)))" |
+            cowtell)" &
       # Handle signals immediately, not after `sleep` exits.  See
       # <http://mywiki.wooledge.org/SignalTrap#When_is_the_signal_handled.3F>.
-      sleep 1 &
-      # See <http://mywiki.wooledge.org/BashFAQ/002>.
-      the_time=$((seconds/60)):$(printf '%02d' $((seconds%60)))
-      # Keep in mind that almost everything causes new values to be assigned to `$?`:
-      #    $ false
-      #    $ (( $? )) && echo $?
-      #    0
-      #    $ false || { (( $? != 148 )) && echo $?; }
-      #    0
-      # In both cases, when `echo $?` is executed, `$?` is no longer 1.
-      fail=$?
-      if (( fail && fail != 148 )); then
-         return $fail
-      fi
-      text=$(figlet -f small "$the_time" | cowtell)
-      fail=$?
-      if (( ! fail )); then
-         pp "$text"
-         fail=$?
-         (( fail && fail != 148 )) && return $fail
-      elif (( fail != 148 )); then
-         return $fail
-      fi
-      wait
-      ((--seconds <= 0)) && return 0
+      sleep 1 & wait $!
+      ((--seconds <= 0)) && break
    done
-   return 1
 }
 
 flush-stdin() {
@@ -225,9 +188,7 @@ pause() {
 for (( n=1; n<=num_pomodoros; ++n )); do
    declare -i seconds=$duration
    start_time=$(date +'%H:%M')
-   pomodoro
-   fail=$?
-   if (( fail == 130 )); then
+   pomodoro || {
       summary+="Abandoned: $start_time to $(date +'%H:%M')\n"
       # Pomodoros are atomic.
       pp "$(cowsay -d -W $(($(tput cols)-3)) 'You abandoned pomodoro '$n'.  Press any' \
@@ -235,16 +196,15 @@ for (( n=1; n<=num_pomodoros; ++n )); do
       pause
       (( --n ))
       continue
-   elif (( fail )); then
-      exit $fail
-   fi
+   }
    pause-state
    tty_settings=$(stty -g)
    stty susp undef
    summary+="Pomodoro $n: $start_time to $(date +'%H:%M')\n"
    if (( n!=num_pomodoros )); then
       start_time=$(date +'%s')
-      play beep.wav
+      # add warm buzz after earch pomodoro
+      play ~/anaconda2/pkgs/ipython-5.3.0-py27_0/lib/python2.7/site-packages/IPython/lib/tests/test.wav
       notify-send "You completed pomodoro $n.  Take a short break (3-5 minutes)."
       # TODO: it may be nice to create this message asynchronously with `lolcat -f` since
       # lolcat is a bit slow.  That's not a priority, though.
@@ -252,15 +212,17 @@ for (( n=1; n<=num_pomodoros; ++n )); do
          'a short break (3-5 minutes), then press any key to continue.')"
       flush-stdin
       if ! pause 180; then
+         # add warm buzz after earch pomodoro
+         play ~/anaconda2/pkgs/ipython-5.3.0-py27_0/lib/python2.7/site-packages/IPython/lib/tests/test.wav
          pp "$(cowsay -w -W $(($(tput cols)-3)) 'Press any key to continue.')"
          pause 120 || {
+         # add warm buzz after earch pomodoro
+         play ~/anaconda2/pkgs/ipython-5.3.0-py27_0/lib/python2.7/site-packages/IPython/lib/tests/test.wav;
             notify-send -u critical 'Time to start the next pomodoro.'; pause;
          }
       fi
-      break_duration=$((($(date +'%s')-start_time+30)/60))
-      summary+="Break: about $break_duration minute"
-      (( break_duration != 1 )) && summary+=s # plural
-      summary+='\n'
+      # TODO: should be "about 1 minute" (singular).
+      summary+="Break: about $((($(date +'%s')-start_time+30)/60)) minutes\n"
    fi
    stty "$tty_settings"
 done
