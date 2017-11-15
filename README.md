@@ -1,3 +1,7 @@
+Just add a warm buzz for each session end /ialexs
+
+---
+
 :tomato: Implementation of the [Pomodoro Technique][wikipedia] using [`figlet(6)`][],
 [`cowsay(1)`][], and optionally [`lolcat`][] :cow:
 
