@@ -172,16 +172,9 @@ on-int() {
    fi
 }
 
-<<<<<<< HEAD
-||||||| merged common ancestors
-# XXX: beware of bugs due to SIGINT (Ctrl-C) being received during the short timeframe in
-# which another function invoked by this one is executing.  The `return 1` statement of
-# the SIGINT trap will be ran in the context of the innter function.
-=======
 # XXX: beware of bugs due to SIGINT (Ctrl-C) being received during the short timeframe in
 # which another function invoked by this one is executing.  The `return 1` statement of
 # the SIGINT trap will be ran in the context of the inner function.
->>>>>>> upstream/master
 pomodoro() {
    count-state
    while :; do
